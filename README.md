@@ -19,7 +19,7 @@ This repository contains R scripts and R Markdown files for implementing indicat
 
   - `fit_baseline_selection.R`  
     Baseline methods for comparison.  
-    Main function: `bayes_ordinal_fitting()`.
+    Main function: `fit_baseline_selection()`.
 
     If `group_list = list()`, ordinary variable selection is performed.  
     If `group_list` is provided, group selection is performed.
@@ -131,7 +131,7 @@ fit_fast <- fit_ordinal_sparse_group_fast(
 Run the baseline variable selection method:
 
 ```r
-fit_var <- bayes_ordinal_fitting(
+fit_var <- fit_baseline_selection(
   fitting_data = train_data,
   iter = 30000,
   a = 1,
@@ -146,7 +146,7 @@ fit_var <- bayes_ordinal_fitting(
 Run the baseline group selection method:
 
 ```r
-fit_group <- bayes_ordinal_fitting(
+fit_group <- fit_baseline_selection(
   fitting_data = train_data,
   iter = 30000,
   a = 1,
@@ -187,7 +187,7 @@ This repository includes three types of methods:
    Uses a faster group-level update and incremental within-group updates.
 
 3. **Baseline selection methods**  
-   Uses `bayes_ordinal_fitting()` for both ordinary variable selection and group selection.  
+   Uses `fit_baseline_selection()` for both ordinary variable selection and group selection.  
    The setting `group_list = list()` gives ordinary variable selection, while providing `group_list` gives group selection.
 
 ---
