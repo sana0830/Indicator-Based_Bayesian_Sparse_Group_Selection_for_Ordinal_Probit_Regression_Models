@@ -1,3 +1,18 @@
+# =============================================================================
+# Bayesian sparse group selection for ordinal probit regression models
+# =============================================================================
+# This file implements the proposed indicator-based Bayesian sparse group
+# selection method for ordinal probit regression models.
+#
+# The main function is:
+#   fit_ordinal_sparse_group()
+#
+# Supporting functions include:
+#   compute_group_logZ()       : computes group-level log Bayes factors.
+#   cgs_transit()              : updates within-group variable indicators.
+#   update_groups_one_sweep()  : performs one group-wise Gibbs update.
+# =============================================================================
+
 compute_group_logZ <- function(
   Xg, 
   Res, 
