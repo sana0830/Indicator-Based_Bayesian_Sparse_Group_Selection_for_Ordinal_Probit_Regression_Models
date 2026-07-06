@@ -18,8 +18,11 @@ This repository contains R scripts and R Markdown files for implementing indicat
     Main function: `fit_ordinal_sparse_group_fast()`.
 
   - `fit_baseline_selection.R`  
-    Baseline methods for comparison, including ordinary variable selection and group selection.  
-    Main functions: `fit_ordinal_variable_selection()` and `fit_ordinal_group_selection()`.
+    Baseline methods for comparison.  
+    Main function: `bayes_ordinal_fitting()`.
+
+    If `group_list = list()`, ordinary variable selection is performed.  
+    If `group_list` is provided, group selection is performed.
 
   - `utils.R`  
     Utility functions shared by different fitting methods.
@@ -67,7 +70,8 @@ group_list <- list(
 )
 ```
 
-Each element contains the column indices of predictors in one group.  
+Each element contains the column indices of predictors in one group.
+
 If `group_list = list()`, ordinary variable selection is performed.
 
 ---
@@ -108,7 +112,7 @@ fit <- fit_ordinal_sparse_group(
 )
 ```
 
-Run the accelerated version:
+Run the accelerated sparse group selection method:
 
 ```r
 fit_fast <- fit_ordinal_sparse_group_fast(
@@ -124,20 +128,25 @@ fit_fast <- fit_ordinal_sparse_group_fast(
 )
 ```
 
-Run the baseline methods:
+Run the baseline variable selection method:
 
 ```r
-fit_var <- fit_ordinal_variable_selection(
+fit_var <- bayes_ordinal_fitting(
   fitting_data = train_data,
   iter = 30000,
   a = 1,
   b = 10,
   theta = 0.5,
   seed_num = 1,
+  group_list = list(),
   use_mcse = TRUE
 )
+```
 
-fit_group <- fit_ordinal_group_selection(
+Run the baseline group selection method:
+
+```r
+fit_group <- bayes_ordinal_fitting(
   fitting_data = train_data,
   iter = 30000,
   a = 1,
@@ -178,7 +187,8 @@ This repository includes three types of methods:
    Uses a faster group-level update and incremental within-group updates.
 
 3. **Baseline selection methods**  
-   Includes ordinary variable selection and group selection for comparison.
+   Uses `bayes_ordinal_fitting()` for both ordinary variable selection and group selection.  
+   The setting `group_list = list()` gives ordinary variable selection, while providing `group_list` gives group selection.
 
 ---
 
@@ -188,4 +198,4 @@ This repository includes three types of methods:
 - The response variable must be coded as `1, ..., K`.
 - The main proposed method is implemented in `R/fit_sparse_group.R`.
 - The accelerated version is implemented in `R/fit_sparse_group_fast.R`.
-- The comparison methods are implemented in `R/fit_baseline_selection.R`.
+- The baseline comparison methods are implemented in `R/fit_baseline_selection.R`.
