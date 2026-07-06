@@ -36,8 +36,9 @@ This repository contains R scripts and R Markdown files for implementing indicat
 - `simulation_data_fitting.Rmd`  
   R Markdown file for simulation studies.
 
-- `real_data_fitting.Rmd`  
-  R Markdown file for empirical data analysis.
+- `real_data_fitting_template.Rmd`  
+  R Markdown template for empirical data analysis.  
+  The empirical dataset is not included due to confidentiality restrictions.
 
 - `performance_metrics.R`  
   Functions for evaluating variable selection, group selection, and prediction performance.
