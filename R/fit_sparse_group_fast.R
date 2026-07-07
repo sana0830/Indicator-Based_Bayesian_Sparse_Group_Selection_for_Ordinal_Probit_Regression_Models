@@ -58,8 +58,7 @@ update_active_group_reparam <- function(
   xbeta, 
   g_idx, 
   slab_sd, 
-  rho
-) {
+  rho) {
   # --------------------------------------------------------------------------
   # Update variable indicators and coefficients within one active group.
   #
@@ -156,86 +155,86 @@ fit_ordinal_sparse_group_fast <- function(
   #   A list containing posterior samples of gamma, beta, tilde_beta, tau, eta,
   #   and information about burn-in and stopping iteration.
   # --------------------------------------------------------------------------  
+  if (!"msm" %in% loadedNamespaces()){
+    library(msm)
+  }
   
   if (!is.numeric(fitting_data[[ncol(fitting_data)]])) {
-    stop("Y 必須是最後一欄且為數值類別 1..K")
+    stop("The last column of fitting_data must be the ordinal response coded as 1, ..., K.")
   }
-  if (any(!fitting_data[[ncol(fitting_data)]] %in%
-          1:max(fitting_data[[ncol(fitting_data)]]))) {
-    stop("Y 必須是 1..K")
+  
+  Y_data <- as.numeric(fitting_data[[ncol(fitting_data)]])
+  
+  if (!all(sort(unique(Y_data)) == seq_len(max(Y_data)))) {
+    stop("The ordinal response must be coded as consecutive integers: 1, ..., K.")
   }
+  
   if (length(group_list) == 0) {
-  stop("group_list must be provided for sparse group selection.")
+    stop("group_list must be provided for accelerated sparse group selection.")
   }
+  
+  set.seed(seed_num)
   t0 <- Sys.time()
   final_burn     <- NA_integer_
   stop_iter      <- iter
   mcse_iteration <- NA_integer_
   
-  set.seed(seed_num)
-  
-  if (!"msm" %in% loadedNamespaces()) library(msm)
-  
-  # -------------------------------------------------------
-  # basic objects
-  # -------------------------------------------------------
+  # Initialize data dimensions and model parameters
   n_size <- nrow(fitting_data)
   p_size <- ncol(fitting_data) - 1
-  
   X_data <- as.matrix(fitting_data[, 1:p_size])
-  Y_data <- as.numeric(fitting_data[, p_size + 1])
   K      <- max(Y_data)
-  
-  # ensure each variable belongs to some group
-  if (length(group_list) != 0) {
-    existing_numbers <- unlist(group_list)
-    missing_numbers  <- setdiff(1:p_size, existing_numbers)
-    for (num in missing_numbers) {
-      group_list <- append(group_list, list(c(num)))
-    }
-  }
   g_size <- length(group_list)
   
-  # prior hyperparameters
+  # Check group structure
+  all_index <- unlist(group_list)
+  
+  if (anyDuplicated(all_index)) {
+    stop("Each predictor can only appear in one group.")
+  }
+  
+  if (!setequal(all_index, seq_len(p_size))) {
+    stop("group_list must cover all predictors in the accelerated sparse group model.")
+  }
+  
+  # Prior hyperparameters
   slab_sd <- if (length(b) == 1) rep(b, p_size) else b
-  if (length(slab_sd) != p_size) stop("b 必須是長度 1 或 p 的向量")
+  if (length(slab_sd) != p_size) {
+    stop("b must have length 1 or p.")
+  }
   
   rho_vec <- if (length(rho) == 1) rep(rho, p_size) else rho
-  if (length(rho_vec) != p_size) stop("rho 必須是長度 1 或 p 的向量")
+  if (length(rho_vec) != p_size) {
+    stop("rho must have length 1 or p.")
+  }
   rho_vec <- clamp_prob(rho_vec)
   
-  theta_vec <- if (length(theta) == 1) rep(theta, max(1, g_size)) else theta
-  if (g_size > 0 && length(theta_vec) != g_size) {
-    stop("grouped case 下，theta 必須是長度 1 或 group 數的向量")
+  theta_vec <- if (length(theta) == 1) rep(theta, g_size) else theta
+  if (length(theta_vec) != g_size) {
+    stop("theta must have length 1 or the number of groups.")
   }
-  if (g_size > 0) theta_vec <- clamp_prob(theta_vec)
+  theta_vec <- clamp_prob(theta_vec)
   
-  # -------------------------------------------------------
-  # initialize states
-  # -------------------------------------------------------
+  # Initialize MCMC states
   beta       <- rep(0, p_size)
   tilde_beta <- rep(0, p_size)
   gamma      <- rep(0, p_size)
-  eta        <- if (g_size > 0) rep(0, g_size) else NULL
+  eta        <- rep(0, g_size)
   
-  if (is.infinite(a)) {
+  if (a == Inf){
     tau <- sort(runif(K - 1, 0, 1))
   } else {
     tau <- sort(rnorm(K - 1, mean = 0, sd = a))
   }
   
-  # -------------------------------------------------------
-  # storage
-  # -------------------------------------------------------
-  beta_record       <- array(0, dim = c(p_size, iter))
-  tildebeta_record  <- array(0, dim = c(p_size, iter))
-  gamma_record      <- array(0, dim = c(p_size, iter))
-  tau_record        <- array(0, dim = c(K - 1, iter))
-  eta_record        <- if (g_size > 0) array(0, dim = c(g_size, iter)) else NULL
+  # Allocate storage for posterior samples
+  beta_record      <- array(0, dim = c(p_size, iter))
+  tildebeta_record <- array(0, dim = c(p_size, iter))
+  gamma_record     <- array(0, dim = c(p_size, iter))
+  tau_record       <- array(0, dim = c(K - 1, iter))
+  eta_record       <- array(0, dim = c(g_size, iter))
   
-  # -------------------------------------------------------
-  # initialize latent Y*
-  # -------------------------------------------------------
+  # Initialize latent responses Y_star
   Y_star_data <- rep(0, n_size)
   for (i in 1:n_size) {
     if (Y_data[i] == 1) {
@@ -252,14 +251,10 @@ fit_ordinal_sparse_group_fast <- function(
   # current linear predictor
   xbeta <- as.numeric(X_data %*% beta)
   
-  # -------------------------------------------------------
-  # main MCMC
-  # -------------------------------------------------------
+  # Main MCMC loop
   for (counter in 1:iter) {
-    
-    # =====================================================
-    # update beta / gamma / eta
-    # =====================================================
+  
+    # Update beta, gamma, and eta
       for (g in seq_len(g_size)) {
         g_idx <- group_list[[g]]
         Xg    <- X_data[, g_idx, drop = FALSE]
@@ -267,10 +262,7 @@ fit_ordinal_sparse_group_fast <- function(
         # residual excluding group g
         group_contrib <- as.numeric(Xg %*% beta[g_idx])
         R_g <- Y_star_data - xbeta + group_contrib
-        
-        # --------------------------------------------------
-        # Version A: partially-collapsed eta_g update (all-in)
-        # --------------------------------------------------
+      
         bf_out <- compute_group_logBF_allin(
           Xg        = Xg,
           Res_g     = R_g,
@@ -279,13 +271,11 @@ fit_ordinal_sparse_group_fast <- function(
         
         # P(eta_g = 1 | ...) = (1-theta)*BF / ((1-theta)*BF + theta)
         logit_eta <- log1p(-theta_vec[g]) + bf_out$logBF - log(theta_vec[g])
-        p_eta     <- plogis(logit_eta)
-        
+        p_eta     <- plogis(logit_eta) 
         old_beta_g <- beta[g_idx]
         
         if (runif(1) < p_eta) {
           eta[g] <- 1
-          
           upd <- update_active_group_reparam(
             X          = X_data,
             y_aug      = Y_star_data,
@@ -315,13 +305,9 @@ fit_ordinal_sparse_group_fast <- function(
           xbeta <- xbeta - as.numeric(Xg %*% old_beta_g)
         }
       }
-    
-    
-    # =====================================================
-    # update cutpoints tau (Chang MH / uniform version)
-    # =====================================================
+
+    # Update cutpoints tau
     if (is.infinite(a)) {
-      
       for (k in 1:(K - 1)) {
         lower <- if (any(Y_data == k))     max(Y_star_data[Y_data == k])     else -Inf
         upper <- if (any(Y_data == k + 1)) min(Y_star_data[Y_data == k + 1]) else  Inf
@@ -385,9 +371,7 @@ fit_ordinal_sparse_group_fast <- function(
       }
     }
     
-    # =====================================================
-    # update latent Y*
-    # =====================================================
+    # Update latent responses Y_star
     for (i in 1:n_size) {
       mean_Y_star <- xbeta[i]
       
@@ -405,17 +389,15 @@ fit_ordinal_sparse_group_fast <- function(
       }
     }
     
-    # =====================================================
-    # record
-    # =====================================================
+    # Store current MCMC samples
     beta_record[, counter]      <- beta
     tildebeta_record[, counter] <- tilde_beta
     gamma_record[, counter]     <- gamma
     tau_record[, counter]       <- tau
-    if (g_size > 0) eta_record[, counter] <- eta
+    eta_record[, counter] <- eta
     
-    # print
-    if (counter %% print_every == 0 && verbose == TRUE) {
+    # Print progress
+    if (counter %% print_every == 0 && verbose) {
       cat(sprintf(
         "iter %d / %d | tau = [%s] | elapsed %.1f mins\n",
         counter, iter,
@@ -424,31 +406,24 @@ fit_ordinal_sparse_group_fast <- function(
       ))
     }
   
-    # =====================================================
-    # MCSE stopping
-    # =====================================================
+    # MCSE stopping rule
     if (use_mcse) {
       if (counter >= burn_proposed + 50 && counter %% check_every == 0) {
         idx <- (burn_proposed + 1):counter
         
         gamma_mat <- gamma_record[, idx, drop = FALSE]
         res_g     <- mcse_max_halfwidth(gamma_mat, alpha = 0.05)
-        
-        if (g_size > 0) {
-          eta_mat <- eta_record[, idx, drop = FALSE]
-          res_eta <- mcse_max_halfwidth(eta_mat, alpha = 0.05)
-          max_hw_now <- max(res_g$max_hw, res_eta$max_hw)
-        } else {
-          max_hw_now <- res_g$max_hw
-        }
-        
+        eta_mat <- eta_record[, idx, drop = FALSE]
+        res_eta <- mcse_max_halfwidth(eta_mat, alpha = 0.05)
+        max_hw_now <- max(res_g$max_hw, res_eta$max_hw)
+          
         if (is.na(final_burn) && max_hw_now < target_hw) {
           final_burn     <- counter
           stop_iter      <- min(iter, counter + extra_keep)
           mcse_iteration <- counter
-          if(verbose){
-          print(sprintf("maximum MCSE of eta and gamma is %.6f", max_hw_now))
-          print(sprintf("MCSE criterion reached at iter = %d", mcse_iteration))
+          if(verbose) {
+            print(sprintf("maximum MCSE of eta and gamma is %.6f", max_hw_now))
+            print(sprintf("MCSE criterion reached at iter = %d", mcse_iteration))
           }
         }
       }
@@ -464,15 +439,13 @@ fit_ordinal_sparse_group_fast <- function(
     final_burn <- burn_proposed
     last_iter  <- iter
   }
-  
   kept_idx <- (final_burn + 1):last_iter
-  
   result <- list(
     gamma_record     = gamma_record[, kept_idx, drop = FALSE],
     beta_record      = beta_record[, kept_idx, drop = FALSE],
     tildebeta_record = tildebeta_record[, kept_idx, drop = FALSE],
     tau_record       = tau_record[, kept_idx, drop = FALSE],
-    eta_record       = if (g_size > 0) eta_record[, kept_idx, drop = FALSE] else NULL,
+    eta_record       = eta_record[, kept_idx, drop = FALSE],
     burn_in          = final_burn,
     last_iter        = last_iter,
     mcse_iteration   = mcse_iteration
