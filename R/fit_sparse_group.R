@@ -425,7 +425,6 @@ fit_ordinal_sparse_group <- function(
   stop_iter     <- iter   
   
   # Initialize data dimensions and model parameters
-  # =========================================================================
   n_size = nrow(fitting_data)          
   p_size = ncol(fitting_data)-1         
   X_data = as.matrix(fitting_data[, 1:p_size])
@@ -440,7 +439,6 @@ fit_ordinal_sparse_group <- function(
   }
   
   # Allocate storage for posterior samples
-  # =========================================================================
   beta_record = array(0, dim = c(p_size, iter))
   gamma_record = array(0, dim = c(p_size, iter))
   tau_record = array(0, dim = c(K-1, iter))
@@ -452,7 +450,6 @@ fit_ordinal_sparse_group <- function(
   }
   
   # Initial values of latent variables
-  # =========================================================================
   Y_star_data = rep(0, n_size)
   
   for (i in 1:n_size){
@@ -471,7 +468,6 @@ fit_ordinal_sparse_group <- function(
   temp_start = 1
   
   # Main MCMC loop
-  # =========================================================================
   for (counter in temp_start:iter) {
     # Draw gamma, beta
     if (length(group_list) == 0){
@@ -612,7 +608,6 @@ fit_ordinal_sparse_group <- function(
     }
   
     # MCSE Convergence Check
-    # ========================================================================= 
     if(use_mcse){
       if (counter >= burn_proposed + 50 && counter %% check_every == 0) {
         idx <- (burn_proposed + 1):counter   
