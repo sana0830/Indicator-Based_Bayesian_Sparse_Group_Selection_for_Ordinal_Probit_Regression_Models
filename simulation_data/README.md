@@ -1,6 +1,8 @@
 # Simulation Data
 
-This folder contains simulated datasets and simulation results used in the simulation study.
+This folder contains simulated datasets and simulation results used in Chapter 4 of the thesis.
+
+All simulation results reported in this folder are averaged over 50 random seeds.
 
 The results are organized by method, tuning setting, simulation background, and parameter version.
 
@@ -16,7 +18,7 @@ The `sparse_group/` folder contains both tuning results and fixed-parameter resu
 
 - `tuning/vary_a_fixed_b10/`: Results obtained by varying `a` while fixing `b = 10`.
 - `tuning/vary_b_fixed_a1/`: Results obtained by varying `b` while fixing `a = 1`.
-- `fixed_parameter/`: Results obtained after selecting a fixed hyperparameter setting.
+- `fixed_parameter/`: Results obtained after fixing the selected hyperparameter setting.
 
 For `vary_a_fixed_b10/`, only `background_1/` is included, and it is divided into three parameter versions.
 
@@ -26,15 +28,9 @@ For fixed-parameter results, both `background_1/` and `background_2/` are divide
 
 ## Group selection
 
-The `group_selection/` folder contains results under the fixed setting `a = 1` and `b = 10`.
+The `group_selection/` folder contains results from the Bayesian group selection method.
 
-Both `background_1/` and `background_2/` are divided into three parameter versions.
+Only the fixed setting is considered:
 
-## Sparse group fast
-
-The `sparse_group_fast/` folder contains results for the accelerated version.
-
-Only two cases are included:
-
-- `background_1/`: Simulation Background 1 with parameter version 1.
-- `background_2/`: Simulation Background 2 with parameter version 2.
+```text
+a = 1, b = 10
